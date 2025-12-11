@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "aws-serverless-mcp": {
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-serverless-mcp-server@latest",
+        "--allow-write",
+        "--allow-sensitive-data-access"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE:-default}",
+        "AWS_REGION": "${AWS_REGION:-us-east-1}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
