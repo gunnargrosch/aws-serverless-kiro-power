@@ -92,6 +92,7 @@ serverless-development-on-aws-kiro-power/
 ├── POWER.md                           # Main power configuration
 ├── mcp.json                          # MCP server configuration  
 ├── steering/                         # Workflow-specific guidance
+│   ├── getting-started.md           # Getting started guide
 │   ├── sam-project-setup.md         # SAM project initialization
 │   ├── event-source-mappings.md     # ESM configuration & optimization
 │   ├── web-app-deployment.md        # Full-stack deployment patterns
