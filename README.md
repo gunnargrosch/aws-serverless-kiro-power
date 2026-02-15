@@ -1,4 +1,4 @@
-# Serverless Development on AWS Kiro Power
+# AWS Serverless Kiro Power
 
 A comprehensive Kiro Power for building and deploying serverless applications with AWS Lambda, SAM, API Gateway, and the complete AWS serverless ecosystem.
 
@@ -44,7 +44,7 @@ This power provides AI-assisted serverless development with AWS best practices b
 
 1. Open Powers panel in Kiro IDE
 2. Click "Add Custom Power" and select "Import power from GitHub"
-3. Enter: `https://github.com/gunnargrosch/serverless-development-on-aws-kiro-power`
+3. Enter: `https://github.com/gunnargrosch/aws-serverless-kiro-power`
 4. Press "Enter" to confirm
 
 ## Usage
@@ -82,7 +82,7 @@ My DynamoDB stream processing is falling behind. The iterator age is increasing.
 ## Power Structure
 
 ```
-serverless-development-on-aws-kiro-power/
+aws-serverless-kiro-power/
 ├── POWER.md                           # Main power configuration
 ├── mcp.json                           # MCP server configuration
 ├── steering/                          # Workflow-specific guidance

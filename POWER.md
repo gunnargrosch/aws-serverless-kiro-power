@@ -1,12 +1,12 @@
 ---
 name: "aws-serverless"
-displayName: "Serverless Development on AWS"
+displayName: "AWS Serverless"
 description: "Build and deploy serverless applications with AWS Lambda, SAM, API Gateway, and comprehensive serverless tooling"
 keywords: ["serverless", "lambda", "sam", "api gateway", "aws", "deployment", "cloudformation", "event-driven", "microservices", "backend", "web app", "dynamodb", "kinesis", "sqs", "kafka", "deploy", "cloudwatch", "cold start", "rest api", "s3", "eventbridge"]
 author: "Gunnar Grosch"
 ---
 
-# Serverless Development on AWS Power
+# AWS Serverless Power
 
 ## Overview
 
