@@ -1,533 +1,158 @@
 # Serverless Troubleshooting Guide
 
-## Common Lambda Issues
+## Symptom-Based Diagnosis
 
-### Cold Start Problems
+### High Latency
 
-#### Symptoms
-- High latency on first invocation
-- Timeout errors during initialization
-- Inconsistent response times
+**Possible causes (check in order):**
+1. Cold start — check if latency is only on first invocations after idle
+2. Under-provisioned memory — more memory = more CPU
+3. Slow external calls — database, HTTP APIs, other AWS services
+4. Large deployment package — increases cold start time
 
-#### Diagnosis
-```bash
-# Check CloudWatch metrics
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Lambda \
-  --metric-name Duration \
-  --dimensions Name=FunctionName,Value=MyFunction \
-  --start-time 2024-01-01T00:00:00Z \
-  --end-time 2024-01-01T23:59:59Z \
-  --period 300 \
-  --statistics Average,Maximum
-```
+**Diagnosis steps:**
+- Use `get_metrics` to check duration (average vs p99) and memory utilization
+- Enable X-Ray tracing to identify which segment is slow
+- Check if function is in a VPC (adds ENI setup time on cold start)
 
-#### Solutions
-```yaml
-# Provisioned concurrency for critical functions
-ProvisionedConcurrency:
-  Type: AWS::Lambda::ProvisionedConcurrencyConfig
-  Properties:
-    FunctionName: !Ref CriticalFunction
-    Qualifier: !GetAtt FunctionVersion.Version
-    ProvisionedConcurrencyLimit: 5
+**Resolution:**
+- For cold starts: initialize SDK clients outside handler, reduce package size, consider provisioned concurrency
+- For slow external calls: use connection reuse, add VPC endpoints, increase timeout
+- For CPU-bound work: increase memory allocation
 
-# Optimize package size
-OptimizedFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    CodeUri: 
-      Bucket: !Ref DeploymentBucket
-      Key: optimized-package.zip
-    Layers:
-      - !Ref SharedDependenciesLayer
-```
+### Function Errors
 
-### Memory and Timeout Issues
+**Possible causes:**
+1. Unhandled exceptions in application code
+2. Timeout exceeded
+3. Out of memory (OOM)
+4. Permission denied on AWS API calls
 
-#### Out of Memory Errors
-```python
-# Monitor memory usage
-import psutil
-import os
+**Diagnosis steps:**
+- Use `sam_logs` (`sam logs`) to retrieve recent CloudWatch logs for the function
+- Look for `Task timed out`, `Runtime.ExitError`, or `AccessDeniedException` messages
+- Check the error rate trend with `get_metrics`
 
-def lambda_handler(event, context):
-    # Log memory usage
-    memory_info = psutil.virtual_memory()
-    print(f"Memory usage: {memory_info.percent}%")
-    print(f"Available memory: {memory_info.available / 1024 / 1024:.2f} MB")
-    
-    # Check Lambda memory limit
-    lambda_memory = int(os.environ.get('AWS_LAMBDA_FUNCTION_MEMORY_SIZE', '128'))
-    print(f"Lambda memory limit: {lambda_memory} MB")
-```
+**Resolution by error type:**
 
-#### Timeout Troubleshooting
-```yaml
-# Increase timeout and memory
-TimeoutProneFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    MemorySize: 1024  # More memory = more CPU
-    Timeout: 300      # Increase timeout
-    Environment:
-      Variables:
-        PYTHONUNBUFFERED: "1"  # Immediate log output
-```
+| Error Message | Cause | Fix |
+|---------------|-------|-----|
+| `Task timed out after X seconds` | Execution exceeded timeout | Increase timeout, increase memory, optimize code |
+| `Runtime.ExitError` | OOM or process crash | Increase memory, check for memory leaks |
+| `AccessDeniedException` | Missing IAM permission | Add the required action to the function's IAM role |
+| `ResourceNotFoundException` | Wrong resource ARN or region | Verify the resource exists in the correct region |
+| `TooManyRequestsException` | Concurrency limit reached | Increase reserved concurrency or request limit increase |
 
-### Permission Issues
+### Deployment Failures
 
-#### IAM Role Debugging
-```bash
-# Test IAM permissions
-aws sts get-caller-identity
-aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::123456789012:role/lambda-role \
-  --action-names dynamodb:GetItem \
-  --resource-arns arn:aws:dynamodb:us-east-1:123456789012:table/MyTable
-```
+**Common errors and solutions:**
 
-#### Common IAM Policies
-```yaml
-LambdaExecutionRole:
-  Type: AWS::IAM::Role
-  Properties:
-    AssumeRolePolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-    ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-    Policies:
-      - PolicyName: DynamoDBAccess
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:UpdateItem
-                - dynamodb:DeleteItem
-                - dynamodb:Query
-                - dynamodb:Scan
-              Resource: 
-                - !GetAtt MyTable.Arn
-                - !Sub "${MyTable.Arn}/index/*"
-```
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Build Failed` | Missing dependencies or incompatible runtime | Run `sam_build` (`sam build --use-container`), verify `requirements.txt`/`package.json` |
+| `CREATE_FAILED` on IAM role | Missing `CAPABILITY_IAM` | Add `capabilities = "CAPABILITY_IAM"` to samconfig.toml |
+| `ROLLBACK_COMPLETE` | Resource creation failed | Check CloudFormation events for the specific resource failure |
+| `No changes to deploy` | No diff from last deploy | Verify `sam_build` (`sam build`) ran, check correct samconfig profile |
+| `Stack is in ROLLBACK_COMPLETE state` | Previous deploy failed | Delete the stack with `aws cloudformation delete-stack`, then redeploy |
 
 ## API Gateway Issues
 
-### CORS Problems
+### CORS Errors
+**Symptoms:** Browser blocking requests, `Access-Control-Allow-Origin` errors
 
-#### Symptoms
-- Browser blocking requests
-- "Access-Control-Allow-Origin" errors
-- OPTIONS requests failing
+**Checklist:**
+- Verify CORS is configured on the API Gateway (AllowOrigin, AllowMethods, AllowHeaders)
+- Check that OPTIONS method returns correct headers
+- Ensure AllowOrigin matches the frontend domain (not `*` in production)
+- Verify Lambda response includes CORS headers if using proxy integration
 
-#### Solutions
-```yaml
-ApiGatewayApi:
-  Type: AWS::Serverless::Api
-  Properties:
-    Cors:
-      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-      AllowOrigin: "'*'"  # Use specific domains in production
-      MaxAge: "'600'"
+### 5xx Errors
+**Symptoms:** API returning 500/502/503 errors
 
-# Manual CORS for complex scenarios
-CorsOptionsMethod:
-  Type: AWS::ApiGateway::Method
-  Properties:
-    RestApiId: !Ref ApiGatewayApi
-    ResourceId: !Ref ApiResource
-    HttpMethod: OPTIONS
-    AuthorizationType: NONE
-    Integration:
-      Type: MOCK
-      IntegrationResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization'"
-            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE'"
-            method.response.header.Access-Control-Allow-Origin: "'*'"
-```
-
-### Request/Response Issues
-
-#### Large Payload Problems
-```python
-# Handle large payloads with S3
-import boto3
-import json
-import base64
-
-s3 = boto3.client('s3')
-
-def lambda_handler(event, context):
-    # Check payload size
-    payload_size = len(json.dumps(event))
-    
-    if payload_size > 6 * 1024 * 1024:  # 6MB limit
-        # Store in S3 for large payloads
-        s3_key = f"large-payloads/{context.aws_request_id}"
-        s3.put_object(
-            Bucket='my-large-payloads-bucket',
-            Key=s3_key,
-            Body=json.dumps(event)
-        )
-        return {
-            'statusCode': 200,
-            'body': json.dumps({'s3_key': s3_key})
-        }
-```
-
-#### Request Validation
-```yaml
-RequestValidator:
-  Type: AWS::ApiGateway::RequestValidator
-  Properties:
-    RestApiId: !Ref ApiGatewayApi
-    ValidateRequestBody: true
-    ValidateRequestParameters: true
-
-UserModel:
-  Type: AWS::ApiGateway::Model
-  Properties:
-    RestApiId: !Ref ApiGatewayApi
-    ContentType: application/json
-    Schema:
-      type: object
-      required: [name, email]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        email:
-          type: string
-          format: email
-```
+**Diagnosis:**
+- 502 Bad Gateway: Lambda returned invalid response format. Check that response includes `statusCode` and `body`.
+- 503 Service Unavailable: Lambda throttled. Check concurrency limits.
+- 500 Internal Server Error: Check Lambda logs for unhandled exceptions.
 
 ## Event Source Mapping Issues
 
-### DynamoDB Streams
+### When to Use Which Tool
 
-#### High Iterator Age
-```bash
-# Monitor iterator age
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Lambda \
-  --metric-name IteratorAge \
-  --dimensions Name=FunctionName,Value=MyStreamProcessor \
-  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
-  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
-  --period 300 \
-  --statistics Maximum
-```
+| Symptom | Tool to Use |
+|---------|------------|
+| Need to set up a new ESM | `esm_guidance` |
+| ESM exists but performance is poor | `esm_optimize` |
+| Kafka/MSK connection failing | `esm_kafka_troubleshoot` |
+| Need IAM policy for ESM | `secure_esm_*` (source-specific) |
 
-#### Solutions
-```yaml
-OptimizedDynamoDBESM:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !GetAtt MyTable.StreamArn
-    FunctionName: !Ref ProcessorFunction
-    StartingPosition: LATEST
-    BatchSize: 100  # Increase for throughput
-    ParallelizationFactor: 10  # Increase parallelization
-    MaximumBatchingWindowInSeconds: 5
-    BisectBatchOnFunctionError: true  # Handle poison records
-    MaximumRetryAttempts: 3
-    MaximumRecordAgeInSeconds: 3600
-```
+### DynamoDB Streams — High Iterator Age
+**Symptoms:** `IteratorAge` metric increasing in CloudWatch
 
-### Kinesis Streams
+**Diagnosis steps:**
+1. Check `ParallelizationFactor` — default is 1, maximum is 10
+2. Check function duration — slow processing causes backlog
+3. Check for poison records causing repeated retries
+4. Check concurrency — throttling prevents scaling
 
-#### Shard Throttling
-```python
-# Monitor shard metrics
-def check_shard_utilization():
-    cloudwatch = boto3.client('cloudwatch')
-    
-    response = cloudwatch.get_metric_statistics(
-        Namespace='AWS/Kinesis',
-        MetricName='IncomingRecords',
-        Dimensions=[
-            {'Name': 'StreamName', 'Value': 'MyStream'}
-        ],
-        StartTime=datetime.utcnow() - timedelta(hours=1),
-        EndTime=datetime.utcnow(),
-        Period=300,
-        Statistics=['Sum']
-    )
-    
-    return response['Datapoints']
-```
+**Resolution:**
+- Increase `ParallelizationFactor` and `BatchSize`
+- Enable `BisectBatchOnFunctionError` to isolate bad records
+- Set `MaximumRetryAttempts` to limit retries on persistent failures
+- Use `esm_optimize` for specific tuning recommendations
 
-#### Scaling Solutions
-```yaml
-KinesisStream:
-  Type: AWS::Kinesis::Stream
-  Properties:
-    ShardCount: 10  # Scale based on throughput needs
-    StreamModeDetails:
-      StreamMode: PROVISIONED
-    
-# Or use on-demand mode
-OnDemandKinesisStream:
-  Type: AWS::Kinesis::Stream
-  Properties:
-    StreamModeDetails:
-      StreamMode: ON_DEMAND
-```
+### Kinesis — Shard Throttling
+**Symptoms:** `ReadProvisionedThroughputExceeded` errors
 
-### SQS Issues
+**Resolution:**
+- Check if multiple consumers share the same shard (each shard supports 2 MB/s reads)
+- Use enhanced fan-out for multiple consumers
+- Consider switching to ON_DEMAND stream mode for automatic scaling
+- Increase shard count for PROVISIONED mode
 
-#### Dead Letter Queue Setup
-```yaml
-ProcessingQueue:
-  Type: AWS::SQS::Queue
-  Properties:
-    VisibilityTimeoutSeconds: 300  # Match Lambda timeout
-    MessageRetentionPeriod: 1209600  # 14 days
-    RedrivePolicy:
-      deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
-      maxReceiveCount: 3
+### SQS — Messages Going to DLQ
+**Symptoms:** Messages accumulating in dead-letter queue
 
-DeadLetterQueue:
-  Type: AWS::SQS::Queue
-  Properties:
-    MessageRetentionPeriod: 1209600  # 14 days for investigation
-```
+**Diagnosis:**
+- Check that `VisibilityTimeout` on the queue is >= Lambda function timeout
+- Check for partial batch failures: enable `ReportBatchItemFailures` in `FunctionResponseTypes`
+- Check `maxReceiveCount` in the redrive policy (too low causes premature DLQ routing)
 
-#### FIFO Queue Issues
-```yaml
-FIFOQueue:
-  Type: AWS::SQS::Queue
-  Properties:
-    QueueName: MyQueue.fifo
-    FifoQueue: true
-    ContentBasedDeduplication: true
-    DeduplicationScope: messageGroup  # Per message group
-    FifoThroughputLimit: perMessageGroupId
+### Kafka/MSK — Connection Failures
+**Symptoms:** ESM stays in `Creating` or `Failed` state
 
-FIFOEventSourceMapping:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !GetAtt FIFOQueue.Arn
-    FunctionName: !Ref ProcessorFunction
-    BatchSize: 1  # Required for strict ordering
-    MaximumConcurrency: 2  # Limited for FIFO
-```
+**Use `esm_kafka_troubleshoot` with the error message.** Common causes:
+- Lambda not in same VPC as MSK cluster
+- Security group missing inbound rule on ports 9092/9094
+- IAM authentication not configured correctly
+- SASL/SCRAM secret not in the correct format
 
-## VPC and Networking Issues
+## VPC and Networking
 
-### VPC Configuration Problems
+### Lambda Cannot Reach AWS Services
+**Symptoms:** Timeouts when calling DynamoDB, S3, SQS from VPC-attached Lambda
 
-#### ENI Exhaustion
-```yaml
-# Monitor ENI usage
-ENIAlarm:
-  Type: AWS::CloudWatch::Alarm
-  Properties:
-    AlarmName: Lambda-ENI-Usage-High
-    MetricName: ConcurrentExecutions
-    Namespace: AWS/Lambda
-    Statistic: Maximum
-    Period: 300
-    EvaluationPeriods: 2
-    Threshold: 900  # Adjust based on subnet size
-    ComparisonOperator: GreaterThanThreshold
-```
+**Cause:** Lambda in VPC private subnets cannot reach AWS service endpoints without a path.
 
-#### Solutions
-```yaml
-# Use multiple subnets
-VpcConfig:
-  SecurityGroupIds:
-    - !Ref LambdaSecurityGroup
-  SubnetIds:
-    - !Ref PrivateSubnet1
-    - !Ref PrivateSubnet2
-    - !Ref PrivateSubnet3
+**Resolution options (choose one):**
+- Add VPC gateway endpoints for DynamoDB and S3 (free, recommended)
+- Add VPC interface endpoints for other services (per-hour + per-GB cost)
+- Add NAT Gateway in public subnet (higher cost, required for internet access)
 
-# VPC endpoints to avoid NAT Gateway
-DynamoDBEndpoint:
-  Type: AWS::EC2::VPCEndpoint
-  Properties:
-    VpcId: !Ref VPC
-    ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
-    VpcEndpointType: Gateway
-```
+### ENI Exhaustion
+**Symptoms:** Lambda functions fail to start, `ENILimitReached` errors
 
-### Security Group Issues
+**Resolution:**
+- Use multiple subnets across AZs (each /24 subnet provides ~250 IPs)
+- Set reserved concurrency to cap the maximum ENI usage
+- Lambda uses Hyperplane ENIs which are shared, but high concurrency can still exhaust IPs
 
-#### Debugging Connectivity
-```bash
-# Test security group rules
-aws ec2 describe-security-groups --group-ids sg-12345678
-aws ec2 authorize-security-group-egress \
-  --group-id sg-12345678 \
-  --protocol tcp \
-  --port 443 \
-  --cidr 0.0.0.0/0
-```
+## Debugging Workflow
 
-#### Proper Security Group Configuration
-```yaml
-LambdaSecurityGroup:
-  Type: AWS::EC2::SecurityGroup
-  Properties:
-    GroupDescription: Lambda function security group
-    VpcId: !Ref VPC
-    SecurityGroupEgress:
-      - IpProtocol: tcp
-        FromPort: 443
-        ToPort: 443
-        CidrIp: 0.0.0.0/0  # HTTPS outbound
-      - IpProtocol: tcp
-        FromPort: 5432
-        ToPort: 5432
-        SourceSecurityGroupId: !Ref DatabaseSecurityGroup  # Database access
-```
+When a function is failing and the cause is unclear, follow this sequence:
 
-## Monitoring and Debugging
-
-### CloudWatch Logs Analysis
-
-#### Log Aggregation Queries
-```bash
-# CloudWatch Insights queries
-aws logs start-query \
-  --log-group-name "/aws/lambda/my-function" \
-  --start-time $(date -d '1 hour ago' +%s) \
-  --end-time $(date +%s) \
-  --query-string '
-    fields @timestamp, @message
-    | filter @message like /ERROR/
-    | sort @timestamp desc
-    | limit 100
-  '
-```
-
-#### Custom Log Parsing
-```python
-import json
-import logging
-
-# Structured logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-def lambda_handler(event, context):
-    try:
-        # Log structured data
-        logger.info(json.dumps({
-            'event': 'function_start',
-            'request_id': context.aws_request_id,
-            'function_name': context.function_name,
-            'remaining_time': context.get_remaining_time_in_millis()
-        }))
-        
-        # Your function logic
-        result = process_event(event)
-        
-        logger.info(json.dumps({
-            'event': 'function_success',
-            'request_id': context.aws_request_id,
-            'result_size': len(str(result))
-        }))
-        
-        return result
-        
-    except Exception as e:
-        logger.error(json.dumps({
-            'event': 'function_error',
-            'request_id': context.aws_request_id,
-            'error': str(e),
-            'error_type': type(e).__name__
-        }))
-        raise
-```
-
-### X-Ray Tracing
-
-#### Advanced Tracing Setup
-```python
-from aws_xray_sdk.core import xray_recorder
-from aws_xray_sdk.core import patch_all
-import boto3
-
-# Patch AWS SDK calls
-patch_all()
-
-@xray_recorder.capture('database_query')
-def query_database(table_name, key):
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table(table_name)
-    
-    # Add custom annotations
-    xray_recorder.current_subsegment().put_annotation('table_name', table_name)
-    xray_recorder.current_subsegment().put_metadata('query_key', key)
-    
-    return table.get_item(Key=key)
-
-def lambda_handler(event, context):
-    # Custom segment for business logic
-    with xray_recorder.in_subsegment('business_logic') as subsegment:
-        subsegment.put_annotation('user_id', event.get('user_id'))
-        result = process_business_logic(event)
-    
-    return result
-```
-
-### Performance Monitoring
-
-#### Custom Metrics
-```python
-import boto3
-from datetime import datetime
-
-cloudwatch = boto3.client('cloudwatch')
-
-def publish_custom_metric(metric_name, value, unit='Count'):
-    cloudwatch.put_metric_data(
-        Namespace='MyApp/Performance',
-        MetricData=[
-            {
-                'MetricName': metric_name,
-                'Value': value,
-                'Unit': unit,
-                'Timestamp': datetime.utcnow()
-            }
-        ]
-    )
-
-def lambda_handler(event, context):
-    start_time = datetime.utcnow()
-    
-    try:
-        result = process_event(event)
-        
-        # Publish success metric
-        publish_custom_metric('ProcessingSuccess', 1)
-        
-        return result
-        
-    except Exception as e:
-        # Publish error metric
-        publish_custom_metric('ProcessingError', 1)
-        raise
-        
-    finally:
-        # Publish processing time
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
-        publish_custom_metric('ProcessingTime', processing_time, 'Seconds')
-```
-
-This troubleshooting guide provides systematic approaches to diagnosing and resolving common serverless application issues on AWS.
+1. **Check logs**: Use `sam_logs` (`sam logs`) to get recent log output
+2. **Check metrics**: Use `get_metrics` to identify error rate, duration, and throttle trends
+3. **Check configuration**: Verify timeout, memory, VPC, and IAM settings in the SAM template
+4. **Test locally**: Use `sam_local_invoke` (`sam local invoke`) with the failing event payload to reproduce
+5. **Trace calls**: Enable X-Ray tracing to identify which downstream call is failing
+6. **Check dependencies**: Verify external services (databases, APIs) are reachable and healthy

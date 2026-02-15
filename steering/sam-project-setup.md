@@ -1,42 +1,50 @@
 # SAM Project Setup Guide
 
-## Project Initialization Best Practices
+## Template Selection
 
-### Choosing the Right Template
-- **hello-world**: Basic Lambda function with API Gateway
-- **quick-start-web**: Web application with frontend and backend
-- **quick-start-cloudformation**: Infrastructure-focused template
-- **quick-start-scratch**: Minimal template for custom builds
+Choose the right template based on your use case:
 
-### Runtime Selection Guidelines
-- **Python 3.12**: Best for data processing, ML workloads
-- **Node.js 22.x**: Ideal for web APIs, real-time applications
-- **Java 21**: Enterprise applications, high-performance computing
-- **Go 1.x**: Microservices, high-concurrency applications
-- **.NET 8**: Windows-centric applications, enterprise integration
+| Template | Best For |
+|----------|----------|
+| `hello-world` | Basic Lambda function with API Gateway |
+| `quick-start-web` | Web application with frontend and backend |
+| `quick-start-cloudformation` | Infrastructure-focused templates |
+| `quick-start-scratch` | Minimal template for custom builds |
 
-### Architecture Considerations
-- **x86_64**: Standard choice, broad compatibility
-- **arm64**: Better price-performance ratio, newer Graviton processors
+Use `get_serverless_templates` to browse additional templates from Serverless Land for specific patterns (e.g., API + DynamoDB, step functions, event processing).
 
-## Project Structure Best Practices
+## Runtime Selection
+
+| Runtime | Best For |
+|---------|----------|
+| Python 3.12 | Data processing, ML workloads, scripting |
+| Node.js 22.x | Web APIs, real-time applications |
+| Java 21 | Enterprise applications, high-performance computing |
+| Go 1.x | Microservices, high-concurrency, low-latency |
+| .NET 8 | Windows-centric applications, enterprise integration |
+
+**Architecture:** Choose `arm64` (Graviton) for better price-performance unless you have x86-specific dependencies.
+
+## Project Structure
 
 ```
 my-serverless-app/
 ├── template.yaml          # SAM template
-├── samconfig.toml         # SAM configuration
+├── samconfig.toml         # Deployment configuration
 ├── src/                   # Function source code
 │   ├── handlers/          # Lambda function handlers
 │   ├── layers/            # Shared layers
 │   └── utils/             # Utility functions
 ├── events/                # Test event files
-├── tests/                 # Unit and integration tests
-└── docs/                  # Documentation
+└── tests/                 # Unit and integration tests
 ```
 
 ## Template Configuration
 
 ### Global Settings
+
+Set global defaults in `template.yaml` to apply to all functions:
+
 ```yaml
 Globals:
   Function:
@@ -50,65 +58,52 @@ Globals:
         POWERTOOLS_SERVICE_NAME: my-service
 ```
 
-### Environment-Specific Parameters
+### Environment Parameters
+
+Use CloudFormation parameters to make templates environment-aware:
+
 ```yaml
 Parameters:
   Environment:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, prod]
-  
-  LogLevel:
-    Type: String
-    Default: INFO
-    AllowedValues: [DEBUG, INFO, WARN, ERROR]
 ```
+
+Reference `!Ref Environment` in resource names and configuration to differentiate stacks.
 
 ## Development Workflow
 
-### 1. Initialize Project
-```bash
-sam init --runtime python3.12 --dependency-manager pip --app-template hello-world --name my-app
-```
+### 1. Initialize
+Use `sam_init` (`sam init`) with chosen runtime, template, and dependency manager.
 
-### 2. Local Development
-```bash
-# Build the application
-sam build
+### 2. Develop
+Write handler code in `src/handlers/`. Create test events in `events/`.
 
-# Test locally
-sam local invoke MyFunction --event events/event.json
+### 3. Build
+Use `sam_build` (`sam build`) before every deployment. Use `--use-container` for consistent builds with Lambda-compatible dependencies.
 
-# Start local API
-sam local start-api --port 3000
-```
+### 4. Test Locally
+Use `sam_local_invoke` (`sam local invoke`) with a test event to validate before deploying.
 
-### 3. Deploy to AWS
-```bash
-# Deploy with guided setup (first time)
-sam deploy --guided
+### 5. Deploy
+Use `sam_deploy` (`sam deploy`) with `guided: true` for the first deploy, which generates `samconfig.toml`. For subsequent deploys, `sam_deploy` (`sam deploy`) reads from `samconfig.toml`.
 
-# Subsequent deployments
-sam deploy
-```
+### 6. Monitor
+Use `sam_logs` (`sam logs`) to check function output. Use `get_metrics` to monitor health.
 
 ## Configuration Management
 
-### samconfig.toml Structure
-```toml
-version = 0.1
+### samconfig.toml
 
+Use environment-specific sections:
+
+```toml
 [default.deploy.parameters]
 stack_name = "my-serverless-app"
-s3_bucket = "my-deployment-bucket"
-s3_prefix = "my-app"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Environment=dev"
-```
 
-### Environment-Specific Configs
-```toml
 [dev.deploy.parameters]
 stack_name = "my-app-dev"
 parameter_overrides = "Environment=dev LogLevel=DEBUG"
@@ -118,83 +113,18 @@ stack_name = "my-app-prod"
 parameter_overrides = "Environment=prod LogLevel=WARN"
 ```
 
-## Security Setup
+Deploy to a specific environment with `sam_deploy` (`sam deploy --config-env prod`).
 
-### IAM Role Template
-```yaml
-MyFunctionRole:
-  Type: AWS::IAM::Role
-  Properties:
-    AssumeRolePolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-    ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-    Policies:
-      - PolicyName: MyFunctionPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-              Resource: !GetAtt MyTable.Arn
-```
+## Security
 
-## Testing Strategy
+- Follow least-privilege IAM: scope each function's role to only the actions and resources it needs
+- Use `AWSLambdaBasicExecutionRole` managed policy for CloudWatch logging
+- Add VPC configuration only when the function needs access to VPC resources (RDS, ElastiCache)
+- Store secrets in Secrets Manager or SSM Parameter Store
 
-### Unit Tests
-```python
-import pytest
-from src.handlers.my_handler import lambda_handler
+## Testing
 
-def test_lambda_handler():
-    event = {"key": "value"}
-    context = {}
-    
-    response = lambda_handler(event, context)
-    
-    assert response["statusCode"] == 200
-    assert "Hello" in response["body"]
-```
-
-### Integration Tests
-```bash
-# Test deployed function
-sam remote invoke MyFunction --stack-name my-app-dev --event events/test.json
-```
-
-## Monitoring Setup
-
-### CloudWatch Alarms
-```yaml
-ErrorAlarm:
-  Type: AWS::CloudWatch::Alarm
-  Properties:
-    AlarmName: !Sub "${AWS::StackName}-errors"
-    MetricName: Errors
-    Namespace: AWS/Lambda
-    Statistic: Sum
-    Period: 300
-    EvaluationPeriods: 2
-    Threshold: 5
-    ComparisonOperator: GreaterThanThreshold
-```
-
-### X-Ray Tracing
-```yaml
-MyFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    Tracing: Active
-    Environment:
-      Variables:
-        _X_AMZN_TRACE_ID: !Ref AWS::NoValue
-```
-
-This guidance ensures proper SAM project setup with security, monitoring, and best practices built-in.
+- **Unit tests**: Test handler logic with mocked AWS SDK calls
+- **Local integration tests**: Use `sam_local_invoke` (`sam local invoke`) with realistic event payloads
+- **Remote tests**: Use `sam remote invoke` to test deployed functions (no MCP tool — CLI only)
+- **Event files**: Keep sample events in `events/` for repeatable testing

@@ -13,51 +13,61 @@ Before using AWS Serverless tools, ensure the following are installed and config
   - Verify with: `docker --version`
   - **CRITICAL**: Docker must be running for local Lambda testing
 
-## What This Power Does
+## First Use Walkthrough
 
-This power gives you AI-powered assistance for AWS serverless development. Instead of learning complex CLI commands and configurations, you can simply describe what you want to build in natural language.
+### Step 1: Validate Prerequisites
 
-### Key Capabilities
+Run these commands to confirm your environment is ready:
 
-**🤖 Intelligent Guidance**
-- Ask "Should I use Lambda for my API?" and get detailed analysis
-- Get recommendations for SAM vs CDK vs CloudFormation
-- Understand when to use different AWS services
+```bash
+aws --version
+aws sts get-caller-identity
+sam --version
+docker --version
+```
 
-**🏗️ Project Management**
-- Create new serverless projects with best practices
-- Deploy full-stack web applications 
-- Set up event-driven architectures
+All four commands must succeed before continuing. If `aws sts get-caller-identity` fails, run `aws configure` to set up credentials.
 
-**📊 Monitoring & Debugging**
-- Retrieve CloudWatch logs and metrics
-- Troubleshoot performance issues
-- Optimize costs and performance
+### Step 2: Create Your First Project
 
-**🔧 Event Processing**
-- Configure Lambda triggers for DynamoDB, Kinesis, SQS, Kafka
-- Optimize Event Source Mapping performance
-- Handle schema management for EventBridge
+Use the `sam_init` (`sam init`) tool to scaffold a new project:
 
-## How to Use This Power
+- Choose a runtime: `python3.12`, `nodejs22.x`, `java21`, or `dotnet8`
+- Choose a template: `hello-world` for a basic API, `quick-start-web` for a web app
+- Choose architecture: `arm64` for cost savings, `x86_64` for broader compatibility
 
-Simply describe what you want to accomplish in natural language:
+Ask the user to confirm the project name and target directory before creating.
 
-**Examples of what you can ask:**
-- "I want to build a REST API for a todo app using Python"
-- "Help me deploy my React frontend with Express backend to AWS"
-- "My Lambda function is timing out, can you help debug it?"
-- "Set up a Lambda to process DynamoDB stream events"
-- "What's the best way to handle authentication in serverless apps?"
+### Step 3: Build and Test Locally
 
-The power will automatically:
-1. Understand your requirements
-2. Use the appropriate AWS tools
-3. Follow best practices
-4. Provide step-by-step guidance
+1. Use `sam_build` (`sam build`) to compile the application
+2. Use `sam_local_invoke` (`sam local invoke`) to test the function with a sample event
+3. Verify the output matches expected behavior
 
-## Testing Complete
+### Step 4: Deploy to AWS
 
-The power has been validated and is ready to use. You can now ask any serverless development questions and the power will provide intelligent assistance using AWS best practices.
+1. Use `sam_deploy` (`sam deploy`) with `guided: true` for the first deployment
+2. Review the changeset before confirming
+3. Note the stack outputs (API endpoint URL, function ARN)
 
-**No project creation during testing** - The power only creates actual projects when you explicitly request them in conversation.
+### Step 5: Verify and Monitor
+
+1. Test the deployed endpoint or function
+2. Use `sam_logs` (`sam logs`) to check CloudWatch logs
+3. Use `get_metrics` to review invocation counts and error rates
+
+## Working with Existing Projects
+
+When working with an existing SAM project:
+
+1. Confirm the project has a `template.yaml` or `template.yml` at the root
+2. Check for `samconfig.toml` to understand existing deployment configuration
+3. Run `sam_build` (`sam build`) to verify the project builds successfully
+4. Review the template resources before making changes
+
+## Next Steps
+
+- For web application deployment patterns, see `web-app-deployment.md`
+- For event-driven architecture setup, see `event-source-mappings.md`
+- For performance tuning, see `serverless-optimization.md`
+- For debugging issues, see `serverless-troubleshooting.md`

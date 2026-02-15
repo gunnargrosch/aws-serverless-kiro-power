@@ -1,253 +1,107 @@
 # Event Source Mappings Guide
 
 ## Overview
-Event Source Mappings (ESMs) connect AWS services to Lambda functions, enabling event-driven architectures. This guide covers setup, optimization, and troubleshooting for all supported event sources.
+
+Event Source Mappings (ESMs) connect AWS services to Lambda functions, enabling event-driven architectures. Use `esm_guidance` for setup recommendations and `esm_optimize` for performance tuning.
 
 ## Supported Event Sources
 
 ### DynamoDB Streams
-**Use Case**: React to data changes in DynamoDB tables
-```yaml
-DynamoDBEventSourceMapping:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !GetAtt MyTable.StreamArn
-    FunctionName: !Ref MyFunction
-    StartingPosition: LATEST
-    BatchSize: 10
-    ParallelizationFactor: 2
-    MaximumBatchingWindowInSeconds: 5
-    BisectBatchOnFunctionError: true
-    MaximumRetryAttempts: 3
-```
+**Use case:** React to data changes in DynamoDB tables
 
-**Best Practices**:
-- Use `LATEST` for new records only, `TRIM_HORIZON` for all records
-- Set appropriate batch size (1-1000) based on record size
-- Enable `BisectBatchOnFunctionError` for poison record handling
+**Key configuration:**
+- `StartingPosition`: `LATEST` for new records only, `TRIM_HORIZON` for all
+- `BatchSize`: 1-1000 (default 100)
+- `ParallelizationFactor`: 1-10 (default 1, increase for throughput)
+- `BisectBatchOnFunctionError`: Enable to isolate poison records
+- `MaximumRetryAttempts`: Set to prevent infinite retries (default unlimited)
+- `MaximumBatchingWindowInSeconds`: Buffer time before invoking (0-300)
+
+**Best practices:**
+- Enable `BisectBatchOnFunctionError` and set `MaximumRetryAttempts` to 3
+- Configure a dead-letter queue for records that exhaust retries
+- Use `ParallelizationFactor` > 1 when processing can't keep up
 
 ### Kinesis Streams
-**Use Case**: Process real-time streaming data
-```yaml
-KinesisEventSourceMapping:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !GetAtt MyStream.Arn
-    FunctionName: !Ref MyFunction
-    StartingPosition: LATEST
-    BatchSize: 100
-    ParallelizationFactor: 10
-    MaximumBatchingWindowInSeconds: 10
-    TumblingWindowInSeconds: 60
-```
+**Use case:** Process real-time streaming data
 
-**Optimization Guidelines**:
-- ParallelizationFactor should not exceed shard count
-- Higher batch sizes reduce invocation costs
-- Use tumbling windows for aggregation scenarios
+**Key configuration:**
+- `BatchSize`: 1-10000 (default 100)
+- `ParallelizationFactor`: 1-10 (should not exceed shard count)
+- `MaximumBatchingWindowInSeconds`: Buffer time (0-300)
+- `TumblingWindowInSeconds`: For aggregation scenarios (0-900)
+- `StartingPosition`: `LATEST` or `TRIM_HORIZON`
+
+**Best practices:**
+- Higher batch sizes reduce invocation costs but increase timeout risk
+- Use tumbling windows for time-based aggregation (counts, sums, averages)
+- Enable enhanced fan-out when multiple consumers read from the same stream
 
 ### SQS Queues
-**Use Case**: Decouple application components with reliable messaging
-```yaml
-SQSEventSourceMapping:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !GetAtt MyQueue.Arn
-    FunctionName: !Ref MyFunction
-    BatchSize: 10
-    MaximumBatchingWindowInSeconds: 20
-    ScalingConfig:
-      MaximumConcurrency: 100
-    FunctionResponseTypes:
-      - ReportBatchItemFailures
-```
+**Use case:** Decouple components with reliable messaging
 
-**FIFO Queue Considerations**:
-- BatchSize must be 1 for strict ordering
-- MaximumConcurrency should be limited
+**Key configuration:**
+- `BatchSize`: 1-10000 (default 10)
+- `MaximumBatchingWindowInSeconds`: Buffer time (0-300)
+- `MaximumConcurrency`: Limit concurrent Lambda invocations
+- `FunctionResponseTypes`: Set to `["ReportBatchItemFailures"]` to avoid reprocessing successful messages
+
+**FIFO queue considerations:**
+- Use `BatchSize: 1` for strict ordering
+- Limit `MaximumConcurrency` to prevent out-of-order processing
 - Use message group IDs for parallel processing within groups
 
+**Best practices:**
+- Always enable `ReportBatchItemFailures` for partial failure handling
+- Set queue `VisibilityTimeout` >= Lambda function timeout
+- Configure a DLQ with `maxReceiveCount` of 3-5
+
 ### MSK/Kafka
-**Use Case**: Process high-throughput streaming data from Kafka
-```yaml
-MSKEventSourceMapping:
-  Type: AWS::Lambda::EventSourceMapping
-  Properties:
-    EventSourceArn: !Ref MyMSKCluster
-    FunctionName: !Ref MyFunction
-    Topics:
-      - my-topic
-    StartingPosition: LATEST
-    BatchSize: 500
-    MaximumBatchingWindowInSeconds: 10
-    ConsumerGroupId: my-consumer-group
-```
+**Use case:** Process high-throughput streaming data from Kafka
 
-**Network Configuration**:
-- Ensure Lambda has VPC access to MSK cluster
-- Configure security groups for port 9092/9094
-- Use IAM authentication or SASL/SCRAM
+**Key configuration:**
+- `Topics`: List of Kafka topics to consume
+- `BatchSize`: 1-10000 (default 100)
+- `MaximumBatchingWindowInSeconds`: Buffer time (0-300)
+- `StartingPosition`: `LATEST` or `TRIM_HORIZON`
+- `ConsumerGroupId`: Consumer group identifier
 
-## Performance Optimization
+**Network requirements:**
+- Lambda must have VPC access to the MSK cluster
+- Security groups must allow traffic on ports 9092 (plaintext) or 9094 (TLS)
+- Use IAM authentication or SASL/SCRAM for authentication
 
-### Batch Size Optimization
-- **Small batches (1-10)**: Lower latency, higher cost
-- **Medium batches (10-100)**: Balanced performance
-- **Large batches (100-1000)**: Higher throughput, potential timeout risk
+**Best practices:**
+- Use `esm_kafka_troubleshoot` for connectivity issues
+- Generate IAM policies with `secure_esm_msk_policy`
 
-### Concurrency Management
-```yaml
-# Reserved concurrency for predictable workloads
-MyFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    ReservedConcurrencyLimit: 50
+## Batch Size Guidelines
 
-# Provisioned concurrency for consistent performance
-MyFunctionVersion:
-  Type: AWS::Lambda::Version
-  Properties:
-    FunctionName: !Ref MyFunction
-    ProvisionedConcurrencyConfig:
-      ProvisionedConcurrencyLimit: 10
-```
+| Priority | Small (1-10) | Medium (10-100) | Large (100-1000+) |
+|----------|-------------|-----------------|-------------------|
+| **Latency** | Lowest | Moderate | Higher |
+| **Cost** | Higher (more invocations) | Balanced | Lower (fewer invocations) |
+| **Timeout risk** | Low | Low | Higher (more processing per invocation) |
 
-### Error Handling Strategies
-```yaml
-# Dead letter queue for failed messages
-DeadLetterQueue:
-  Type: AWS::SQS::Queue
-  Properties:
-    MessageRetentionPeriod: 1209600  # 14 days
+## Error Handling
 
-MyFunction:
-  Type: AWS::Serverless::Function
-  Properties:
-    DeadLetterQueue:
-      Type: SQS
-      TargetArn: !GetAtt DeadLetterQueue.Arn
-```
+- **Stream sources** (DynamoDB, Kinesis): Records retry until success, expiry, or max retries. Enable `BisectBatchOnFunctionError` and set `MaximumRetryAttempts`.
+- **SQS**: Failed messages return to the queue after visibility timeout. Use `ReportBatchItemFailures` for partial batch success.
+- **Kafka**: Similar to stream sources. Failed batches retry based on ESM configuration.
 
-## Monitoring and Observability
+Always configure a dead-letter queue or on-failure destination to capture records that cannot be processed.
 
-### Key Metrics to Monitor
-- **Invocation Count**: Total function executions
-- **Error Rate**: Percentage of failed invocations
-- **Duration**: Function execution time
-- **Throttles**: Concurrency limit hits
-- **Iterator Age**: Lag in stream processing
+## Monitoring
 
-### CloudWatch Alarms
-```yaml
-HighErrorRateAlarm:
-  Type: AWS::CloudWatch::Alarm
-  Properties:
-    AlarmName: !Sub "${FunctionName}-high-error-rate"
-    MetricName: Errors
-    Namespace: AWS/Lambda
-    Statistic: Sum
-    Period: 300
-    EvaluationPeriods: 2
-    Threshold: 10
-    ComparisonOperator: GreaterThanThreshold
+**Key metrics to alarm on:**
+- `IteratorAge` (streams): Lag in processing. Alert when > 60 seconds.
+- `Errors` and error rate: Failed invocations from the ESM.
+- `Throttles`: Function concurrency limits being hit.
+- DLQ message count: Messages that exhausted retries.
 
-IteratorAgeAlarm:
-  Type: AWS::CloudWatch::Alarm
-  Properties:
-    AlarmName: !Sub "${FunctionName}-high-iterator-age"
-    MetricName: IteratorAge
-    Namespace: AWS/Lambda
-    Statistic: Maximum
-    Period: 300
-    Threshold: 60000  # 1 minute in milliseconds
-```
+## Schema Integration
 
-## Troubleshooting Common Issues
-
-### High Iterator Age
-**Symptoms**: Increasing lag in stream processing
-**Solutions**:
-- Increase ParallelizationFactor
-- Optimize function performance
-- Scale up Lambda memory/CPU
-- Check for poison records
-
-### Throttling Issues
-**Symptoms**: Functions not processing all available records
-**Solutions**:
-- Increase reserved concurrency
-- Optimize function duration
-- Implement exponential backoff
-- Use SQS for buffering
-
-### Permission Errors
-**Common IAM Policies**:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kinesis:DescribeStream",
-        "kinesis:GetShardIterator",
-        "kinesis:GetRecords",
-        "kinesis:ListStreams"
-      ],
-      "Resource": "arn:aws:kinesis:region:account:stream/stream-name"
-    }
-  ]
-}
-```
-
-### Network Connectivity (VPC)
-**Requirements for VPC-enabled functions**:
-- NAT Gateway or VPC endpoints for AWS service access
-- Security group rules for outbound traffic
-- Subnet routing to internet gateway (for public APIs)
-
-## Event Schema Handling
-
-### Type-Safe Event Processing
-```python
-from typing import Dict, List, Any
-from aws_lambda_powertools.utilities.typing import LambdaContext
-
-def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
-    # DynamoDB Stream event
-    for record in event.get('Records', []):
-        if record['eventSource'] == 'aws:dynamodb':
-            process_dynamodb_record(record)
-        elif record['eventSource'] == 'aws:kinesis':
-            process_kinesis_record(record)
-    
-    return {"statusCode": 200}
-```
-
-### EventBridge Schema Registry
-Use the schema tools to get type-safe event handling:
-1. Search for event schemas: `search_schema`
-2. Get schema definition: `describe_schema`
-3. Generate typed handlers based on schema
-
-## Cost Optimization
-
-### Right-Sizing Strategies
-- Monitor memory utilization in CloudWatch
-- Use AWS Lambda Power Tuning for optimal memory
-- Implement efficient batch processing
-- Consider provisioned concurrency for consistent workloads
-
-### Batch Processing Efficiency
-```python
-def process_batch_efficiently(records: List[Dict]) -> None:
-    # Batch database operations
-    with db_connection.batch_writer() as batch:
-        for record in records:
-            batch.put_item(Item=transform_record(record))
-    
-    # Use connection pooling
-    # Minimize cold start impact
-```
-
-This guide provides comprehensive coverage of ESM patterns, optimization strategies, and troubleshooting approaches for building robust event-driven serverless applications.
+For type-safe event processing with EventBridge:
+1. Use `search_schema` to find event schemas
+2. Use `describe_schema` to get the full definition
+3. Generate typed handlers based on the schema

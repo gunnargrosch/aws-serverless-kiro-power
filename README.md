@@ -8,25 +8,25 @@ This power provides AI-assisted serverless development with AWS best practices b
 
 ## Features
 
-### 🚀 Serverless Application Lifecycle
+### Serverless Application Lifecycle
 - **Project Initialization**: Create new SAM projects with templates and best practices
-- **Local Development**: Test Lambda functions locally with Docker containers  
-- **Build & Deploy**: Compile, package, and deploy to AWS with CloudFormation
+- **Local Development**: Test Lambda functions locally with Docker containers
+- **Build and Deploy**: Compile, package, and deploy to AWS with CloudFormation
 - **Monitoring**: Retrieve logs and metrics for debugging and optimization
 
-### 🌐 Web Application Deployment
+### Web Application Deployment
 - **Full-Stack Apps**: Deploy complete applications with Lambda Web Adapter
 - **Frontend Assets**: Manage S3 hosting with CloudFront distribution
 - **Custom Domains**: Configure Route 53 DNS and ACM certificates
 - **Updates**: Hot-swap frontend assets with cache invalidation
 
-### ⚡ Event-Driven Architecture
+### Event-Driven Architecture
 - **Event Source Mappings**: Configure Lambda triggers for DynamoDB, Kinesis, SQS, Kafka
 - **EventBridge Integration**: Type-safe event handling with schema registry
 - **Performance Optimization**: Analyze and optimize ESM configurations
 - **Troubleshooting**: Diagnose connectivity and performance issues
 
-### 📊 Observability & Optimization
+### Observability and Optimization
 - **CloudWatch Integration**: Logs, metrics, and alarms
 - **X-Ray Tracing**: Distributed tracing and performance analysis
 - **Cost Optimization**: Right-sizing and efficiency recommendations
@@ -42,26 +42,20 @@ This power provides AI-assisted serverless development with AWS best practices b
 
 ### Install the Power
 
-#### From Kiro IDE
-1. Open Powers panel (👻⚡ icon)
+1. Open Powers panel in Kiro IDE
 2. Click "Add power from GitHub"
 3. Enter: `https://github.com/gunnargrosch/serverless-development-on-aws-kiro-power`
 4. Click Install
-
-#### From GitHub URL
-```bash
-# In Kiro IDE Powers panel
-Add power from GitHub: https://github.com/gunnargrosch/serverless-development-on-aws-kiro-power
-```
 
 ## Usage
 
 ### Activation Keywords
 The power activates when you mention:
-- `serverless`, `lambda`, `sam`
-- `api gateway`, `aws`, `deployment`
-- `cloudformation`, `event-driven`
-- `microservices`, `backend`, `web app`
+- `serverless`, `lambda`, `sam`, `deploy`
+- `api gateway`, `aws`, `cloudformation`
+- `dynamodb`, `kinesis`, `sqs`, `kafka`
+- `event-driven`, `microservices`, `backend`, `web app`
+- `cold start`, `rest api`, `s3`, `eventbridge`, `cloudwatch`
 
 ### Example Prompts
 
@@ -90,15 +84,15 @@ My DynamoDB stream processing is falling behind. The iterator age is increasing.
 ```
 serverless-development-on-aws-kiro-power/
 ├── POWER.md                           # Main power configuration
-├── mcp.json                          # MCP server configuration  
-├── steering/                         # Workflow-specific guidance
-│   ├── getting-started.md           # Getting started guide
-│   ├── sam-project-setup.md         # SAM project initialization
-│   ├── event-source-mappings.md     # ESM configuration & optimization
-│   ├── web-app-deployment.md        # Full-stack deployment patterns
-│   ├── serverless-optimization.md   # Performance & cost optimization
-│   └── serverless-troubleshooting.md # Issue diagnosis & resolution
-└── README.md                        # This file
+├── mcp.json                           # MCP server configuration
+├── steering/                          # Workflow-specific guidance
+│   ├── getting-started.md             # Getting started guide
+│   ├── sam-project-setup.md           # SAM project initialization
+│   ├── event-source-mappings.md       # ESM configuration and optimization
+│   ├── web-app-deployment.md          # Full-stack deployment patterns
+│   ├── serverless-optimization.md     # Performance and cost optimization
+│   └── serverless-troubleshooting.md  # Issue diagnosis and resolution
+└── README.md                          # This file
 ```
 
 ## Available Tools
@@ -116,6 +110,8 @@ The power provides access to comprehensive serverless tooling through the AWS Se
 - `deploy_webapp` - Deploy full-stack applications
 - `configure_domain` - Set up custom domains
 - `update_webapp_frontend` - Update frontend assets
+
+### Observability Tools
 - `get_metrics` - Retrieve performance metrics
 
 ### Event Source Mapping Tools
@@ -123,7 +119,13 @@ The power provides access to comprehensive serverless tooling through the AWS Se
 - `esm_optimize` - Performance optimization
 - `esm_kafka_troubleshoot` - Kafka-specific troubleshooting
 
-### Schema & EventBridge Tools
+### Security Policy Tools
+- `secure_esm_msk_policy` - Generate IAM policy for MSK
+- `secure_esm_sqs_policy` - Generate IAM policy for SQS
+- `secure_esm_kinesis_policy` - Generate IAM policy for Kinesis
+- `secure_esm_dynamodb_policy` - Generate IAM policy for DynamoDB streams
+
+### Schema and EventBridge Tools
 - `search_schema` - Find event schemas
 - `describe_schema` - Get schema definitions
 - `list_registries` - Browse schema registries
@@ -132,32 +134,11 @@ The power provides access to comprehensive serverless tooling through the AWS Se
 - `get_lambda_guidance` - Lambda use case recommendations
 - `get_iac_guidance` - Infrastructure as Code selection
 - `get_serverless_templates` - Example templates from Serverless Land
+- `get_lambda_event_schemas` - Lambda event schemas by source type
 
-## Best Practices Included
-
-### Security
-- IAM roles with least privilege
-- VPC configurations for private resources
-- Secrets management with AWS Secrets Manager
-- CloudTrail logging for audit trails
-
-### Performance
-- Right-sizing memory and timeout configurations
-- Cold start optimization techniques
-- Connection pooling and caching strategies
-- Batch processing patterns
-
-### Cost Optimization
-- Provisioned vs on-demand concurrency guidance
-- Storage lifecycle policies
-- Reserved concurrency for cost control
-- Monitoring and alerting for cost management
-
-### Monitoring
-- Structured logging patterns
-- Custom CloudWatch metrics
-- X-Ray tracing integration
-- Comprehensive alarm strategies
+### Deployment Help Tools
+- `webapp_deployment_help` - Web app deployment troubleshooting
+- `deploy_serverless_app_help` - SAM deployment troubleshooting
 
 ## Contributing
 
@@ -182,4 +163,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ for the serverless community. Happy building! 🚀
+Built with ❤️ for the serverless community!
