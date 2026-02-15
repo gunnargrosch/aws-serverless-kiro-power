@@ -45,7 +45,7 @@ This power provides AI-assisted serverless development with AWS best practices b
 1. Open Powers panel in Kiro IDE
 2. Click "Add Custom Power" and select "Import power from GitHub"
 3. Enter: `https://github.com/gunnargrosch/serverless-development-on-aws-kiro-power`
-4. Click Install
+4. Press "Enter" to confirm
 
 ## Usage
 
