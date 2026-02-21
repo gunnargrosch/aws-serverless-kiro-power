@@ -1,8 +1,8 @@
 ---
 name: "aws-serverless"
 displayName: "AWS Serverless"
-description: "Build and deploy serverless applications with AWS Lambda, SAM, API Gateway, and comprehensive serverless tooling"
-keywords: ["serverless", "lambda", "sam", "api gateway", "aws", "deployment", "cloudformation", "event-driven", "microservices", "backend", "web app", "dynamodb", "kinesis", "sqs", "kafka", "deploy", "cloudwatch", "cold start", "rest api", "s3", "eventbridge"]
+description: "Build and deploy serverless applications with AWS Lambda, SAM, API Gateway, EventBridge, Step Functions, and event-driven architectures"
+keywords: ["serverless", "lambda", "sam", "cdk", "api gateway", "aws", "deployment", "cloudformation", "event-driven", "microservices", "backend", "web app", "dynamodb", "kinesis", "sqs", "kafka", "deploy", "cloudwatch", "cold start", "rest api", "s3", "eventbridge", "function url", "step functions", "durable functions", "state machine"]
 author: "Gunnar Grosch"
 ---
 
@@ -15,6 +15,7 @@ Build and deploy serverless applications with AWS Lambda, SAM, API Gateway, and 
 Use SAM CLI for project initialization and deployment, Lambda Web Adapter for web applications, or Event Source Mappings for event-driven architectures. The platform handles infrastructure provisioning, scaling, and monitoring automatically.
 
 **Key capabilities:**
+
 - **SAM CLI Integration**: Initialize, build, deploy, and test serverless applications
 - **Web Application Deployment**: Deploy full-stack applications with Lambda Web Adapter
 - **Event Source Mappings**: Configure Lambda triggers for DynamoDB, Kinesis, SQS, Kafka
@@ -24,14 +25,20 @@ Use SAM CLI for project initialization and deployment, Lambda Web Adapter for we
 
 ## Available Steering Files
 
-| File | Description |
-|------|-------------|
-| `getting-started.md` | Prerequisites validation and first-use walkthrough |
-| `sam-project-setup.md` | SAM project initialization, template selection, and development workflow |
-| `web-app-deployment.md` | Full-stack deployment patterns with Lambda Web Adapter |
-| `event-source-mappings.md` | ESM configuration for DynamoDB, Kinesis, SQS, and Kafka |
-| `serverless-optimization.md` | Performance tuning, cost optimization, and monitoring strategies |
-| `serverless-troubleshooting.md` | Symptom-based diagnosis and resolution for common issues |
+Refer to these supporting files for detailed guidance on specific workflows:
+
+| File | When to Use |
+| ---- | ----------- |
+| `getting-started.md` | Decision tree: what are you building? Routes to the right template, runtime, and guide |
+| `sam-project-setup.md` | SAM project initialization, template selection, development workflow, and testing |
+| `cdk-project-setup.md` | CDK as an alternative to SAM: constructs, patterns, testing, and deployment |
+| `web-app-deployment.md` | Full-stack deployment patterns with Lambda Web Adapter, authentication, and response streaming |
+| `event-sources.md` | Lambda event sources: S3, SNS, DynamoDB, Kinesis, SQS, Kafka, MQ, and DocumentDB |
+| `event-driven-architecture.md` | EventBridge rules, event design, choreography vs orchestration, Pipes, schema registry |
+| `orchestration-and-workflows.md` | Multi-step workflows with Lambda Durable Functions or Step Functions |
+| `optimization.md` | Performance tuning, cost optimization, Lambda SnapStart, Managed Instances, and Powertools |
+| `observability.md` | Structured logging, distributed tracing, custom metrics, alarms, dashboards, and Logs Insights |
+| `troubleshooting.md` | Symptom-based diagnosis and resolution for common issues |
 
 ## Available MCP Servers
 
@@ -108,14 +115,16 @@ Use SAM CLI for project initialization and deployment, Lambda Web Adapter for we
 ## Tool Usage Examples
 
 ### Get Lambda Guidance
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "get_lambda_guidance", {
   "use_case": "REST API for todo application"
 })
 ```
 
 ### Initialize SAM Project
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "sam_init", {
   "project_name": "my-app",
   "runtime": "python3.12",
@@ -125,7 +134,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "sam_init", {
 ```
 
 ### Deploy Web Application
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "deploy_webapp", {
   "deployment_type": "fullstack",
   "project_name": "my-web-app",
@@ -134,7 +144,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "deploy_webapp", {
 ```
 
 ### Get Performance Metrics
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "get_metrics", {
   "project_name": "my-app",
   "resources": ["lambda", "apiGateway"]
@@ -142,7 +153,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "get_metrics", {
 ```
 
 ### Search Event Schemas
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "search_schema", {
   "keywords": "aws.s3",
   "registry_name": "aws.events"
@@ -150,7 +162,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "search_schema", {
 ```
 
 ### Get ESM Setup Guidance
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "esm_guidance", {
   "event_source": "dynamodb",
   "guidance_type": "setup"
@@ -158,7 +171,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "esm_guidance", {
 ```
 
 ### Optimize Event Source Mapping
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "esm_optimize", {
   "action": "analyze",
   "event_source": "kinesis",
@@ -167,7 +181,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "esm_optimize", {
 ```
 
 ### Generate Security Policy for DynamoDB Streams
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "secure_esm_dynamodb_policy", {
   "region": "us-east-1",
   "account": "123456789012",
@@ -177,7 +192,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "secure_esm_dynamodb_policy", {
 ```
 
 ### Get Serverless Templates
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "get_serverless_templates", {
   "template_type": "API",
   "runtime": "python3.12"
@@ -185,7 +201,8 @@ usePower("aws-serverless", "aws-serverless-mcp", "get_serverless_templates", {
 ```
 
 ### Get Lambda Event Schemas
-```
+
+```text
 usePower("aws-serverless", "aws-serverless-mcp", "get_lambda_event_schemas", {
   "event_source": "sqs",
   "runtime": "python"
@@ -195,93 +212,73 @@ usePower("aws-serverless", "aws-serverless-mcp", "get_lambda_event_schemas", {
 ## Best Practices
 
 ### Project Setup
-- Do: Use `sam_init` (`sam init`) with an appropriate template for your use case
-- Do: Select `arm64` architecture for better price-performance unless you need x86-specific dependencies
-- Do: Set global defaults in `template.yaml` for timeout, memory, runtime, and tracing
-- Don't: Copy-paste SAM templates from the internet without understanding the resource configuration
+
+- Do: Use `sam_init` or `cdk init` with an appropriate template for your use case
+- Do: Set global defaults for timeout, memory, runtime, and tracing (`Globals` in SAM, construct props in CDK)
+- Do: Use AWS Lambda Powertools for structured logging, tracing, metrics (EMF), idempotency, and batch processing — available for Python, TypeScript, Java, and .NET
+- Don't: Copy-paste templates from the internet without understanding the resource configuration
 - Don't: Use the same memory and timeout values for all functions regardless of workload
 
 ### Security
+
 - Do: Follow least-privilege IAM policies scoped to specific resources and actions
 - Do: Use `secure_esm_*` tools to generate correct IAM policies for event source mappings
 - Do: Store secrets in AWS Secrets Manager or SSM Parameter Store, never in environment variables
 - Do: Use VPC endpoints instead of NAT Gateways for AWS service access when possible
+- Do: Enable Amazon GuardDuty Lambda Protection to monitor function network activity for threats (cryptocurrency mining, data exfiltration, C2 callbacks)
 - Don't: Use wildcard (`*`) resource ARNs or actions in IAM policies
 - Don't: Hardcode credentials or secrets in application code or templates
+- Don't: Store user data or sensitive information in module-level variables — execution environments can be reused across different callers
 
-### Performance
-- Do: Initialize SDK clients and database connections outside the Lambda handler
-- Do: Use `get_metrics` to measure before and after optimization changes
-- Do: Right-size memory using AWS Lambda Power Tuning or `get_metrics` data
-- Do: Enable X-Ray tracing to identify latency bottlenecks
-- Don't: Over-provision memory or concurrency without measuring actual usage
-- Don't: Use provisioned concurrency for infrequently invoked functions
+### Idempotency
 
-### Event Source Mappings
-- Do: Use `esm_guidance` to get the correct configuration for your event source type
-- Do: Enable `ReportBatchItemFailures` for SQS to avoid reprocessing successful messages
-- Do: Enable `BisectBatchOnFunctionError` for stream sources to isolate poison records
-- Do: Set `MaximumRetryAttempts` and dead-letter queues for stream-based ESMs
-- Don't: Set batch size larger than your function can process within its timeout
-- Don't: Use FIFO SQS with large batch sizes when strict ordering is required
+- Do: Write idempotent function code — Lambda delivers events **at least once**, so duplicate invocations must be safe
+- Do: Use the AWS Lambda Powertools Idempotency utility (backed by DynamoDB) for critical operations
+- Do: Validate and deduplicate events at the start of the handler before performing side effects
+- Don't: Assume an event will only ever be processed once
 
-### Deployment
-- Do: Use `sam_deploy` (`sam deploy --guided`) for first-time setup, then `sam_deploy` (`sam deploy`) for subsequent deploys
-- Do: Use `samconfig.toml` with environment-specific sections for multi-environment deployments
-- Do: Test locally with `sam_local_invoke` (`sam local invoke`) before deploying to AWS
-- Don't: Deploy directly to production without testing in a staging environment
-- Don't: Skip the `sam_build` (`sam build`) step before deploying
+For topic-specific best practices, see the dedicated guide files in the Available Steering Files table above.
 
-## Troubleshooting
+## Lambda Limits Quick Reference
 
-### AWS CLI or SAM CLI Not Configured
-**Error:** `aws: command not found` or `sam: command not found`
-**Cause:** AWS CLI or SAM CLI is not installed or not on the system PATH.
-**Solution:** Install AWS CLI and SAM CLI, then run `aws --version`, `sam --version`, and `aws sts get-caller-identity` to verify. See the `getting-started.md` steering file for a full prerequisites checklist.
+Limits that developers commonly hit:
 
-### IAM Permission Denied
-**Error:** `AccessDeniedException` or `is not authorized to perform`
-**Cause:** The IAM role or user lacks the required permissions for the AWS action.
-**Solution:** Check the error message for the specific action and resource ARN. Use the `secure_esm_*` tools to generate correct policies for event source mappings. For SAM deployments, ensure `CAPABILITY_IAM` is set.
+| Resource | Limit |
+| ---------- | ------- |
+| Function timeout | 900 seconds (15 minutes) |
+| Memory | 128 MB – 10,240 MB |
+| 1 vCPU equivalent | 1,769 MB memory |
+| Synchronous payload (request + response) | 6 MB each |
+| Async invocation payload | 1 MB |
+| Streamed response | 200 MB |
+| Deployment package (.zip, uncompressed) | 250 MB |
+| Deployment package (.zip upload, compressed) | 50 MB |
+| Container image | 10 GB |
+| Layers per function | 5 |
+| Environment variables (aggregate) | 4 KB |
+| `/tmp` ephemeral storage | 512 MB – 10,240 MB |
+| Account concurrent executions (default) | 1,000 (requestable increase) |
+| Burst scaling rate | 1,000 new executions per 10 seconds |
 
-### SAM Build Fails
-**Error:** `Build Failed` with dependency resolution errors
-**Cause:** Missing dependencies, incompatible runtime, or build container issues.
-**Solution:** Verify the runtime matches your code. Run `sam_build` (`sam build --use-container`) to build in a Lambda-compatible Docker container. Check that `requirements.txt` or `package.json` is present and valid.
+Check Service Quotas for your account limits: `aws lambda get-account-settings`
 
-### SAM Deploy Changeset Empty
-**Error:** `No changes to deploy. Stack is up to date.`
-**Cause:** The template and code haven't changed since the last deployment.
-**Solution:** This is informational, not an error. If you expected changes, verify that `sam_build` (`sam build`) ran successfully and check that the correct `samconfig.toml` profile is being used.
+## Troubleshooting Quick Reference
 
-### Local Testing Fails
-**Error:** Docker-related errors during `sam_local_invoke` (`sam local invoke`)
-**Cause:** Docker Desktop is not running or Docker daemon is not accessible.
-**Solution:** Start Docker Desktop, wait for it to initialize, then verify with `docker ps`. If using a remote Docker host, check `DOCKER_HOST` environment variable.
+| Error | Cause | Solution |
+| ------- | ------- | ---------- |
+| `Build Failed` | Missing dependencies | Run `sam_build` with `use_container: true` |
+| `Stack is in ROLLBACK_COMPLETE` | Previous deploy failed | Delete stack with `aws cloudformation delete-stack`, redeploy |
+| `IteratorAge` increasing | Stream consumer falling behind | Increase `ParallelizationFactor` and `BatchSize`. Use `esm_optimize` |
+| EventBridge events silently dropped | No DLQ, retries exhausted | Add `RetryPolicy` + `DeadLetterConfig` to rule target |
+| Step Functions failing silently | No retry on Task state | Add `Retry` with `Lambda.ServiceException`, `Lambda.AWSLambdaException` |
+| Durable Function not resuming | Missing IAM permissions | Add `lambda:CheckpointDurableExecution` and `lambda:GetDurableExecutionState` |
 
-### Lambda Timeout
-**Error:** `Task timed out after X seconds`
-**Cause:** Function execution exceeds the configured timeout, often due to slow external calls, large payloads, or under-provisioned memory.
-**Solution:** Increase the `Timeout` value in the SAM template. Increase `MemorySize` (which also increases CPU). Use `get_metrics` to identify whether the function is CPU-bound or IO-bound. For IO-bound functions, check network configuration and connection reuse.
-
-### High Iterator Age on Streams
-**Error:** CloudWatch `IteratorAge` metric increasing
-**Cause:** The Lambda consumer cannot keep up with the stream's incoming record rate.
-**Solution:** Increase `ParallelizationFactor` (up to 10) and `BatchSize`. Use `esm_optimize` to get specific recommendations. Check for poison records causing retries. Scale up Lambda memory for CPU-bound processing.
-
-### Kafka/MSK Connectivity Failure
-**Error:** `KAFKA_CONNECTION_ERROR` or authentication failures
-**Cause:** Network or authentication misconfiguration between Lambda and the Kafka cluster.
-**Solution:** Use `esm_kafka_troubleshoot` with the error message for targeted diagnosis. Verify VPC configuration, security group rules (ports 9092/9094), and IAM or SASL/SCRAM authentication settings.
-
-### CloudFront Cache Not Updating
-**Error:** Frontend changes not visible after deployment
-**Cause:** CloudFront is serving cached versions of the old assets.
-**Solution:** Use `update_webapp_frontend` with cache invalidation enabled. Alternatively, use versioned asset filenames (content hashing) so new deploys use new URLs.
+For detailed troubleshooting, see `troubleshooting.md`.
 
 ## Configuration
 
 ### Authentication Setup
+
 This power requires AWS credentials configured on the host machine:
 
 1. **Install AWS CLI**: Follow the [AWS CLI installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
@@ -292,11 +289,22 @@ This power requires AWS credentials configured on the host machine:
 4. **Verify access**: Run `aws sts get-caller-identity` to confirm credentials are valid
 
 ### SAM CLI Setup
+
 1. **Install SAM CLI**: Follow the [SAM CLI installation guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
-2. **Install Docker Desktop**: Required for `sam_local_invoke` (`sam local invoke`) and container-based builds
+2. **Install Docker Desktop**: Required for `sam_local_invoke` and container-based builds
 3. **Verify**: Run `sam --version` and `docker --version`
 
 ### MCP Server Configuration
+
 The MCP server is configured in `mcp.json` with the following flags:
+
 - `--allow-write`: Enables write operations (project creation, deployments)
 - `--allow-sensitive-data-access`: Enables access to Lambda logs and API Gateway logs
+
+**Version policy:** `mcp.json` uses `awslabs.aws-serverless-mcp-server@latest`. This is intentional — the package is pre-1.0 and under active development, so pinning would miss bug fixes and new tool capabilities. If you need a stable, reproducible setup, pin to a specific version:
+
+```json
+"args": ["awslabs.aws-serverless-mcp-server@0.1.17", "--allow-write", "--allow-sensitive-data-access"]
+```
+
+Check for new versions with `uvx pip index versions awslabs.aws-serverless-mcp-server`.

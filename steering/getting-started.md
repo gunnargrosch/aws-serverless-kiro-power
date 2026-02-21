@@ -2,72 +2,150 @@
 
 ## Prerequisites
 
-Before using AWS Serverless tools, ensure the following are installed and configured:
-
-- **AWS CLI**: Install and configure with your AWS credentials
-  - Verify with: `aws --version` and `aws sts get-caller-identity`
-  - **CRITICAL**: If AWS CLI is not configured, DO NOT proceed with serverless setup
-- **AWS SAM CLI**: Install via pip, npm, or package managers
-  - Verify with: `sam --version`
-- **Docker Desktop**: Required for local testing and container-based builds
-  - Verify with: `docker --version`
-  - **CRITICAL**: Docker must be running for local Lambda testing
-
-## First Use Walkthrough
-
-### Step 1: Validate Prerequisites
-
-Run these commands to confirm your environment is ready:
+Verify these tools before proceeding:
 
 ```bash
-aws --version
-aws sts get-caller-identity
-sam --version
-docker --version
+aws --version                  # AWS CLI
+aws sts get-caller-identity    # Credentials configured
+sam --version                  # SAM CLI
+docker --version               # Docker (required for local testing)
 ```
 
-All four commands must succeed before continuing. If `aws sts get-caller-identity` fails, run `aws configure` to set up credentials.
+If `aws sts get-caller-identity` fails, run `aws configure` to set up credentials. If using CDK instead of SAM, also run `cdk --version` — see [cdk-project-setup.md](cdk-project-setup.md).
 
-### Step 2: Create Your First Project
+## What Are You Building?
 
-Use the `sam_init` (`sam init`) tool to scaffold a new project:
+### REST/HTTP API
 
-- Choose a runtime: `python3.12`, `nodejs22.x`, `java21`, or `dotnet8`
-- Choose a template: `hello-world` for a basic API, `quick-start-web` for a web app
-- Choose architecture: `arm64` for cost savings, `x86_64` for broader compatibility
+An API backend serving JSON over HTTPS — the most common serverless pattern.
 
-Ask the user to confirm the project name and target directory before creating.
+**Quick start:**
 
-### Step 3: Build and Test Locally
+- Template: `hello-world` (single function + API Gateway) or `quick-start-web` (web framework)
+- Runtime: `nodejs22.x` or `python3.12`
+- Architecture: `arm64`
 
-1. Use `sam_build` (`sam build`) to compile the application
-2. Use `sam_local_invoke` (`sam local invoke`) to test the function with a sample event
-3. Verify the output matches expected behavior
+**Read next:**
 
-### Step 4: Deploy to AWS
+- [sam-project-setup.md](sam-project-setup.md) — project scaffolding, deployment workflow, handler examples, container image packaging for large dependencies
+- [web-app-deployment.md](web-app-deployment.md) — API endpoint selection (HTTP API vs REST API vs Function URL vs ALB), CORS, custom domains, authentication
 
-1. Use `sam_deploy` (`sam deploy`) with `guided: true` for the first deployment
-2. Review the changeset before confirming
-3. Note the stack outputs (API endpoint URL, function ARN)
+### Full-Stack Web Application
 
-### Step 5: Verify and Monitor
+A frontend (React, Vue, Angular, Next.js) with a backend API, deployed together.
 
-1. Test the deployed endpoint or function
-2. Use `sam_logs` (`sam logs`) to check CloudWatch logs
-3. Use `get_metrics` to review invocation counts and error rates
+**Quick start:**
+
+- Template: `quick-start-web`
+- Use `deploy_webapp` with `deployment_type: "fullstack"` for S3 + CloudFront + Lambda + API Gateway
+
+**Read next:**
+
+- [web-app-deployment.md](web-app-deployment.md) — Lambda Web Adapter, project structure, frontend updates
+
+### Event Processor
+
+A Lambda function triggered by a queue, stream, or database change — SQS, Kinesis, DynamoDB Streams, Kafka, or DocumentDB.
+
+**Quick start:**
+
+- Template: `hello-world` (then add an event source in `template.yaml`)
+- Use `esm_guidance` to get the correct ESM configuration for your source
+- Use `secure_esm_*` tools to generate least-privilege IAM policies
+
+**Read next:**
+
+- [event-sources.md](event-sources.md) — source-specific configuration, event filtering, batch processing examples
+- [observability.md](observability.md) — structured logging, tracing, and monitoring for event processors
+- [optimization.md](optimization.md) — ESM tuning parameters
+
+### File/Object Processor
+
+A Lambda function triggered when files are uploaded to or deleted from S3 — image processing, file validation, data import, thumbnail generation.
+
+**Quick start:**
+
+- Template: `hello-world` (then add an S3 event in `template.yaml`)
+- Use prefix/suffix filters to limit triggers to specific paths or file types
+
+**Read next:**
+
+- [event-sources.md](event-sources.md) — S3 event notification configuration and recursive trigger prevention
+
+### Notification Fan-Out
+
+One event triggers multiple independent consumers — order notifications, alert distribution, cross-service communication.
+
+**Quick start:**
+
+- Create an SNS topic and subscribe multiple Lambda functions
+- Use filter policies to route subsets of messages to specific consumers
+
+**Read next:**
+
+- [event-sources.md](event-sources.md) — SNS subscription configuration, filter policies, and DLQ setup
+- [event-driven-architecture.md](event-driven-architecture.md) — for complex routing with EventBridge instead of SNS
+
+### Event-Driven Architecture
+
+Multiple services communicating through events on EventBridge — decoupled, independently deployable.
+
+**Quick start:**
+
+- Create a custom event bus (never use the default bus for application events)
+- Define event schemas with `metadata` envelope for idempotency and tracing
+- Use `search_schema` and `describe_schema` for schema discovery
+
+**Read next:**
+
+- [event-driven-architecture.md](event-driven-architecture.md) — event bus setup, event patterns, event design, Pipes, archive and replay
+- [observability.md](observability.md) — correlation ID propagation, EventBridge metrics, and alarm strategy
+- [orchestration-and-workflows.md](orchestration-and-workflows.md) — if you need reliable sequencing or human-in-the-loop
+
+### Multi-Step Workflow or AI Pipeline
+
+A workflow with sequential steps, parallel execution, human approval, or checkpointing — order processing, document pipelines, agentic AI.
+
+**Quick start:**
+
+- **Python 3.14+ or Node.js 22+**: Use Lambda Durable Functions for workflows expressed as code
+- **Any runtime**: Use Step Functions for visual orchestration with 200+ AWS service integrations
+- **High-throughput, short-lived**: Use Step Functions Express (100k+ exec/sec)
+
+**Read next:**
+
+- [orchestration-and-workflows.md](orchestration-and-workflows.md) — Durable Functions SDK, Step Functions ASL, testing, patterns
+
+### Scheduled Job
+
+A Lambda function triggered on a cron schedule — reports, cleanup tasks, data sync.
+
+Add a `Schedule` event to your function in `template.yaml`:
+
+```yaml
+MyScheduledFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Handler: src/handlers/report.handler
+    Events:
+      DailyReport:
+        Type: Schedule
+        Properties:
+          Schedule: cron(0 8 * * ? *)   # 8:00 AM UTC daily
+          Enabled: true
+```
+
+**Read next:**
+
+- [sam-project-setup.md](sam-project-setup.md) — project setup and deployment workflow
 
 ## Working with Existing Projects
 
-When working with an existing SAM project:
+When joining or modifying an existing SAM project:
 
-1. Confirm the project has a `template.yaml` or `template.yml` at the root
-2. Check for `samconfig.toml` to understand existing deployment configuration
-3. Run `sam_build` (`sam build`) to verify the project builds successfully
-4. Review the template resources before making changes
+1. Look for `template.yaml` (or `template.yml`) at the project root
+2. Check `samconfig.toml` for deployment configuration and environment profiles
+3. Run `sam_build` to verify the project builds
+4. Use `sam_logs` and `get_metrics` to understand current behavior before making changes
 
-## Next Steps
-
-- For web application deployment patterns, see `web-app-deployment.md`
-- For event-driven architecture setup, see `event-source-mappings.md`
-- For performance tuning, see `serverless-optimization.md`
-- For debugging issues, see `serverless-troubleshooting.md`
+For CDK projects, look for `cdk.json` and run `cdk synth` to verify synthesis. See [cdk-project-setup.md](cdk-project-setup.md).
